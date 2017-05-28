@@ -13,4 +13,4 @@ Easily export Telegram contacts with profile images
 
 5- You are good to export the contacts
 
-[[https://github.com/salarcode/ExportTelegramContacts/blob/master/ExportTelegramContacts/Screenshots/MainMenu.png|alt=MainMenu]]
+![MainMenu](https://github.com/salarcode/ExportTelegramContacts/blob/master/ExportTelegramContacts/Screenshots/MainMenu.png)
