@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -117,8 +119,10 @@ namespace ExportTelegramContacts
 
 				Console.WriteLine($"Number of contacts: {contacts.users.lists.Count}");
 
-				var fileName = $"Exported-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
-				var fileNameWihContacts = $"Exported-WithPhoto-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
+				var fileName = $"ExportedContacts\\Exported-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
+				var fileNameWihContacts = $"ExportedContacts\\Exported-WithPhoto-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
+
+				Directory.CreateDirectory("ExportedContacts");
 
 				Console.Write($"Don't export contacts without phone? [y/n] ");
 				var filterResult = Console.ReadLine() ?? "";
@@ -193,7 +197,7 @@ namespace ExportTelegramContacts
 
 									if (photo != null)
 									{
-										Console.Write($"Reading prfile image for: {user.first_name} {user.last_name} ...");
+										Console.Write($"Reading prfile image for: {user.first_name} {user.last_name}...");
 										var fileResult = await TClient.GetFile(new TLInputFileLocation()
 										{
 											local_id = photo.local_id,
@@ -203,6 +207,13 @@ namespace ExportTelegramContacts
 											filePartSize: -1);
 
 										var smallPhotoBytes = fileResult.bytes;
+
+										// resize if it is the big image
+										if (!saveSmallImages)
+										{
+											Console.Write("Resizing...");
+											smallPhotoBytes = ResizeProfileImage(ref smallPhotoBytes);
+										}
 
 										userPhotoString = Convert.ToBase64String(smallPhotoBytes);
 
@@ -255,23 +266,7 @@ namespace ExportTelegramContacts
 			}
 		}
 
-		/// <summary>
-		/// +98935 - > 0935
-		/// </summary>
-		public static string LocalizeIranMobilePhone(string number)
-		{
-			if (string.IsNullOrEmpty(number))
-				return number;
-			if (number.StartsWith("+98"))
-			{
-				return number.Replace("+98", "0");
-			}
-			if (number.StartsWith("98"))
-			{
-				return "0" + number.Remove(0, 2);
-			}
-			return number;
-		}
+
 
 		public static string ConvertFromTelegramPhoneNumber(string number)
 		{
@@ -315,6 +310,93 @@ namespace ExportTelegramContacts
 				Console.WriteLine(ex.Message);
 				return;
 			}
+		}
+
+		private static byte[] ResizeProfileImage(ref byte[] imageBytes)
+		{
+			int vcarImageSize = 300;
+			int vcarImageQuality = 70;
+
+			using (var imgMem = new MemoryStream(imageBytes))
+			using (var img = Image.FromStream(imgMem))
+			{
+				using (var mediumImageStream = new MemoryStream())
+				using (var mediumImage = ResizeImage(
+					img,
+					vcarImageSize,
+					vcarImageSize))
+				{
+					var jpegCodec = JpegEncodingCodec;
+					var jpegQuality = GetQualityParameter(vcarImageQuality);
+
+					mediumImage.Save(mediumImageStream, jpegCodec, jpegQuality);
+
+					// the new image should be smaller than the original one
+					if (mediumImageStream.Length > imageBytes.Length)
+					{
+						return imageBytes;
+					}
+					else
+					{
+						return mediumImageStream.ToArray();
+					}
+				}
+			}
+		}
+
+
+		private static Image ResizeImage(Image image, int maxWidth, int maxHeight)
+		{
+			var ratioX = (double)maxWidth / image.Width;
+			var ratioY = (double)maxHeight / image.Height;
+			var ratio = Math.Min(ratioX, ratioY);
+
+			var newWidth = (int)(image.Width * ratio);
+			var newHeight = (int)(image.Height * ratio);
+
+			var newImage = new Bitmap(newWidth, newHeight);
+
+			using (var graphics = Graphics.FromImage(newImage))
+				graphics.DrawImage(image, 0, 0, newWidth, newHeight);
+
+			return newImage;
+		}
+
+
+		private static EncoderParameters GetQualityParameter(int quality)
+		{
+			// Encoder parameter for image quality 
+			var qualityParam = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+
+			// JPEG image codec 
+			var encoderParams = new EncoderParameters(1)
+			{
+				Param = { [0] = qualityParam }
+			};
+
+			return encoderParams;
+		}
+
+		private static ImageCodecInfo _jpegEncodingCodec;
+		private static ImageCodecInfo JpegEncodingCodec
+		{
+			get { return _jpegEncodingCodec ?? (_jpegEncodingCodec = GetEncoderInfo("image/jpeg")); }
+		}
+
+		/// <summary> 
+		/// Returns the image codec with the given mime type 
+		/// </summary> 
+		private static ImageCodecInfo GetEncoderInfo(string mimeType)
+		{
+			// Get image codecs for all image formats 
+			var codecs = ImageCodecInfo.GetImageEncoders();
+
+			// Find the correct image codec 
+			for (int i = 0; i < codecs.Length; i++)
+				if (codecs[i].MimeType == mimeType)
+					return codecs[i];
+
+			return null;
 		}
 	}
 }
