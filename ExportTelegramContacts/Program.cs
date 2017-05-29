@@ -68,7 +68,7 @@ namespace ExportTelegramContacts
 				Console.WriteLine();
 				Console.WriteLine("***************************");
 				Console.WriteLine("1: Authenticate");
-				Console.WriteLine("2: Export");
+				Console.WriteLine("2: Export Contacts");
 				Console.WriteLine("Q: Quit");
 				Console.WriteLine(" ");
 				Console.Write("Please enter your choice: ");
@@ -145,8 +145,8 @@ namespace ExportTelegramContacts
 						//Full Name
 						stringWrite.WriteLine("FN:" + user.first_name + " " +
 											 /* nameMiddle + " " +*/ user.last_name);
-						stringWrite.WriteLine("TEL;CELL:" + LocalizeIranMobilePhone(user.phone));
-						 
+						stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.phone));
+
 						//vCard End
 						stringWrite.WriteLine("END:VCARD");
 
@@ -160,12 +160,12 @@ namespace ExportTelegramContacts
 				var exportWithImagesResult = Console.ReadLine() ?? "";
 				var exportWithImages = exportWithImagesResult == "" || exportWithImagesResult.ToLower() == "y";
 
-				Console.Write($"Save small or big images? [s=small=enter/b=big] ");
-				var saveSmallResult = Console.ReadLine() ?? "";
-				var saveSmallImages = saveSmallResult == "" || saveSmallResult.ToLower() == "y";
-
 				if (exportWithImages)
 				{
+					Console.Write($"Save small or big images? [s=small=enter/b=big] ");
+					var saveSmallResult = Console.ReadLine() ?? "";
+					var saveSmallImages = saveSmallResult == "" || saveSmallResult.ToLower() == "s";
+
 					Console.WriteLine($"Writing to: {fileNameWihContacts}");
 					using (var file = File.Create(fileNameWihContacts))
 					using (var stringWrite = new StreamWriter(file))
@@ -181,31 +181,38 @@ namespace ExportTelegramContacts
 									continue;
 							}
 
-							var userPhoto = user.photo as TLUserProfilePhoto;
 							string userPhotoString = null;
-							if (userPhoto != null)
+							try
 							{
-								var photo = userPhoto.photo_big as TLFileLocation;
-								if(saveSmallImages)
-									photo = userPhoto.photo_small as TLFileLocation;
-
-								if (photo != null)
+								var userPhoto = user.photo as TLUserProfilePhoto;
+								if (userPhoto != null)
 								{
-									Console.Write($"Reading prfile image for: {user.first_name} {user.last_name} ...");
-									var fileResult = await TClient.GetFile(new TLInputFileLocation()
+									var photo = userPhoto.photo_big as TLFileLocation;
+									if (saveSmallImages)
+										photo = userPhoto.photo_small as TLFileLocation;
+
+									if (photo != null)
 									{
-										local_id = photo.local_id,
-										secret = photo.secret,
-										volume_id = photo.volume_id
-									},
-										filePartSize: -1);
+										Console.Write($"Reading prfile image for: {user.first_name} {user.last_name} ...");
+										var fileResult = await TClient.GetFile(new TLInputFileLocation()
+										{
+											local_id = photo.local_id,
+											secret = photo.secret,
+											volume_id = photo.volume_id
+										},
+											filePartSize: -1);
 
-									var smallPhotoBytes = fileResult.bytes;
+										var smallPhotoBytes = fileResult.bytes;
 
-									userPhotoString = Convert.ToBase64String(smallPhotoBytes);
+										userPhotoString = Convert.ToBase64String(smallPhotoBytes);
 
-									Console.WriteLine("Done");
+										Console.WriteLine("Done");
+									}
 								}
+							}
+							catch (Exception e)
+							{
+								Console.WriteLine("Failed due " + e.Message);
 							}
 
 
@@ -220,7 +227,7 @@ namespace ExportTelegramContacts
 							//Full Name
 							stringWrite.WriteLine("FN:" + user.first_name + " " +
 												  /* nameMiddle + " " +*/ user.last_name);
-							stringWrite.WriteLine("TEL;CELL:" + LocalizeIranMobilePhone(user.phone));
+							stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.phone));
 
 							if (userPhotoString != null)
 							{
@@ -229,7 +236,7 @@ namespace ExportTelegramContacts
 								stringWrite.WriteLine(string.Empty);
 							}
 
-							 
+
 							//vCard End
 							stringWrite.WriteLine("END:VCARD");
 
@@ -266,9 +273,21 @@ namespace ExportTelegramContacts
 			return number;
 		}
 
+		public static string ConvertFromTelegramPhoneNumber(string number)
+		{
+			if (string.IsNullOrEmpty(number))
+				return number;
+			if (number.StartsWith("0"))
+				return number;
+			if (number.StartsWith("+"))
+				return number;
+			return "+" + number;
+		}
+
+
 		private static async Task CallAuthenicate()
 		{
-			Console.Write("Please enter your mobile number: ");
+			Console.Write("Please enter your mobile number (e.g: 14155552671): ");
 			var phoneNumber = Console.ReadLine();
 
 			string requestHash;
