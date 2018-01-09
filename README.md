@@ -1,6 +1,10 @@
 # ExportTelegramContacts
 Easily export Telegram contacts with profile images
 
+# Executable Binary
+You can download the latest executable binary from here:
+	https://github.com/salarcode/ExportTelegramContacts/releases
+
 
 # How to use
 1- First you have to register at https://my.telegram.org/auth
