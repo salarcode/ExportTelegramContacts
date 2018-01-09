@@ -117,27 +117,27 @@ namespace ExportTelegramContacts
 
 				var contacts = (await TClient.GetContactsAsync()) as TLContacts;
 
-				Console.WriteLine($"Number of contacts: {contacts.users.lists.Count}");
+				Console.WriteLine($"Number of contacts: {contacts.Users.Count}");
 
 				var fileName = $"ExportedContacts\\Exported-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
 				var fileNameWihContacts = $"ExportedContacts\\Exported-WithPhoto-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
 
 				Directory.CreateDirectory("ExportedContacts");
 
-				Console.Write($"Don't export contacts without phone? [y/n] ");
+				Console.Write($"Export contacts without phone? [y/n] ");
 				var filterResult = Console.ReadLine() ?? "";
-				var dontExport = filterResult == "" || filterResult.ToLower() == "y";
+				var dontExport = !(filterResult == "" || filterResult.ToLower() == "n");
 
 				Console.WriteLine($"Writing to: {fileName}");
 				using (var file = File.Create(fileName))
 				using (var stringWrite = new StreamWriter(file))
 				{
 					var savedCount = 0;
-					foreach (var user in contacts.users.lists.OfType<TLUser>())
+					foreach (var user in contacts.Users.OfType<TLUser>())
 					{
 						if (dontExport)
 						{
-							if (string.IsNullOrWhiteSpace(user.phone))
+							if (string.IsNullOrWhiteSpace(user.Phone))
 								continue;
 						}
 
@@ -145,11 +145,11 @@ namespace ExportTelegramContacts
 						stringWrite.WriteLine("BEGIN:VCARD");
 						stringWrite.WriteLine("VERSION:2.1");
 						//Name
-						stringWrite.WriteLine("N:" + user.last_name + ";" + user.first_name);
+						stringWrite.WriteLine("N:" + user.LastName + ";" + user.FirstName);
 						//Full Name
-						stringWrite.WriteLine("FN:" + user.first_name + " " +
-											 /* nameMiddle + " " +*/ user.last_name);
-						stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.phone));
+						stringWrite.WriteLine("FN:" + user.FirstName + " " +
+											 /* nameMiddle + " " +*/ user.LastName);
+						stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.Phone));
 
 						//vCard End
 						stringWrite.WriteLine("END:VCARD");
@@ -177,36 +177,35 @@ namespace ExportTelegramContacts
 
 
 						var savedCount = 0;
-						foreach (var user in contacts.users.lists.OfType<TLUser>())
+						foreach (var user in contacts.Users.OfType<TLUser>())
 						{
 							if (dontExport)
 							{
-								if (string.IsNullOrWhiteSpace(user.phone))
+								if (string.IsNullOrWhiteSpace(user.Phone))
 									continue;
 							}
 
 							string userPhotoString = null;
 							try
 							{
-								var userPhoto = user.photo as TLUserProfilePhoto;
+								var userPhoto = user.Photo as TLUserProfilePhoto;
 								if (userPhoto != null)
 								{
-									var photo = userPhoto.photo_big as TLFileLocation;
+									var photo = userPhoto.PhotoBig as TLFileLocation;
 									if (saveSmallImages)
-										photo = userPhoto.photo_small as TLFileLocation;
+										photo = userPhoto.PhotoSmall as TLFileLocation;
 
 									if (photo != null)
 									{
-										Console.Write($"Reading prfile image for: {user.first_name} {user.last_name}...");
-										var fileResult = await TClient.GetFile(new TLInputFileLocation()
-										{
-											local_id = photo.local_id,
-											secret = photo.secret,
-											volume_id = photo.volume_id
-										},
-											filePartSize: -1);
-
-										var smallPhotoBytes = fileResult.bytes;
+										Console.Write($"Reading prfile image for: {user.FirstName} {user.LastName}...");
+										
+										var smallPhotoBytes = await GetFile(TClient,
+											new TLInputFileLocation()
+											{
+												LocalId = photo.LocalId,
+												Secret = photo.Secret,
+												VolumeId = photo.VolumeId
+											});
 
 										// resize if it is the big image
 										if (!saveSmallImages)
@@ -234,11 +233,11 @@ namespace ExportTelegramContacts
 							stringWrite.WriteLine("BEGIN:VCARD");
 							stringWrite.WriteLine("VERSION:2.1");
 							//Name
-							stringWrite.WriteLine("N:" + user.last_name + ";" + user.first_name);
+							stringWrite.WriteLine("N:" + user.LastName + ";" + user.FirstName);
 							//Full Name
-							stringWrite.WriteLine("FN:" + user.first_name + " " +
-												  /* nameMiddle + " " +*/ user.last_name);
-							stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.phone));
+							stringWrite.WriteLine("FN:" + user.FirstName + " " +
+												  /* nameMiddle + " " +*/ user.LastName);
+							stringWrite.WriteLine("TEL;CELL:" + ConvertFromTelegramPhoneNumber(user.Phone));
 
 							if (userPhotoString != null)
 							{
@@ -263,6 +262,33 @@ namespace ExportTelegramContacts
 			{
 				Console.WriteLine(ex.Message);
 				return;
+			}
+		}
+
+		private static async Task<byte[]> GetFile(TelegramClient client, TLInputFileLocation file)
+		{
+			int filePart = 512 * 1024;
+			int offset = 0;
+
+			using (var mem = new MemoryStream())
+			{
+				while (true)
+				{
+					var resFile = await client.GetFile(
+						file,
+						filePart, offset);
+
+					mem.Write(resFile.Bytes, 0, resFile.Bytes.Length);
+					offset += filePart;
+					var readCount = resFile.Bytes.Length;
+
+#if DEBUG
+					Console.Write($" ... read {readCount} of {filePart} .");
+#endif
+					if (readCount < filePart)
+						break;
+				}
+				return mem.ToArray();
 			}
 		}
 
@@ -303,7 +329,7 @@ namespace ExportTelegramContacts
 			{
 				TUser = await TClient.MakeAuthAsync(phoneNumber, requestHash, authCode);
 
-				Console.WriteLine($"Authenicaion was successfull for Person Name:{TUser.first_name + " " + TUser.last_name}, Username={TUser.username}");
+				Console.WriteLine($"Authenicaion was successfull for Person Name:{TUser.FirstName + " " + TUser.LastName}, Username={TUser.Username}");
 			}
 			catch (Exception ex)
 			{
