@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TeleSharp.TL;
+using TeleSharp.TL.Account;
 using TeleSharp.TL.Contacts;
 using TLSharp.Core;
 
@@ -15,8 +16,8 @@ namespace ExportTelegramContacts
 {
 	class Program
 	{
-		private static TelegramClient TClient;
-		private static TLUser TUser;
+		private static TelegramClient _client;
+		private static TLUser _user;
 
 
 		public static int ApiId
@@ -47,8 +48,8 @@ namespace ExportTelegramContacts
 			try
 			{
 				Console.Write("Connecting to Telegram servers...");
-				TClient = new TelegramClient(ApiId, ApiHash);
-				var connect = TClient.ConnectAsync();
+				_client = new TelegramClient(ApiId, ApiHash);
+				var connect = _client.ConnectAsync();
 				connect.Wait();
 				Console.WriteLine("Connected");
 			}
@@ -62,7 +63,7 @@ namespace ExportTelegramContacts
 
 			char? WriteMenu()
 			{
-				if (!TClient.IsUserAuthorized())
+				if (!_client.IsUserAuthorized())
 				{
 					Console.WriteLine("You are not authenticated, please authenticate first.");
 				}
@@ -107,7 +108,7 @@ namespace ExportTelegramContacts
 		{
 			try
 			{
-				if (!TClient.IsUserAuthorized())
+				if (!_client.IsUserAuthorized())
 				{
 					Console.WriteLine("You are not authenticated, please authenticate first.");
 					return;
@@ -115,7 +116,7 @@ namespace ExportTelegramContacts
 
 				Console.WriteLine($"Reading contacts...");
 
-				var contacts = (await TClient.GetContactsAsync()) as TLContacts;
+				var contacts = (await _client.GetContactsAsync()) as TLContacts;
 
 				Console.WriteLine($"Number of contacts: {contacts.Users.Count}");
 
@@ -198,8 +199,8 @@ namespace ExportTelegramContacts
 									if (photo != null)
 									{
 										Console.Write($"Reading prfile image for: {user.FirstName} {user.LastName}...");
-										
-										var smallPhotoBytes = await GetFile(TClient,
+
+										var smallPhotoBytes = await GetFile(_client,
 											new TLInputFileLocation()
 											{
 												LocalId = photo.LocalId,
@@ -260,7 +261,7 @@ namespace ExportTelegramContacts
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.Message);
+				Console.WriteLine("Unknown error, if the error conitinues removing 'session.dat' file may help.\r\n" + ex.Message);
 				return;
 			}
 		}
@@ -269,11 +270,14 @@ namespace ExportTelegramContacts
 		{
 			int filePart = 512 * 1024;
 			int offset = 0;
-
 			using (var mem = new MemoryStream())
 			{
 				while (true)
 				{
+					if (!client.IsConnected)
+					{
+						await client.ConnectAsync(true);
+					}
 					var resFile = await client.GetFile(
 						file,
 						filePart, offset);
@@ -314,7 +318,7 @@ namespace ExportTelegramContacts
 			string requestHash;
 			try
 			{
-				requestHash = await TClient.SendCodeRequestAsync(phoneNumber);
+				requestHash = await _client.SendCodeRequestAsync(phoneNumber);
 			}
 			catch (Exception ex)
 			{
@@ -327,9 +331,14 @@ namespace ExportTelegramContacts
 
 			try
 			{
-				TUser = await TClient.MakeAuthAsync(phoneNumber, requestHash, authCode);
+				_user = await _client.MakeAuthAsync(phoneNumber, requestHash, authCode);
 
-				Console.WriteLine($"Authenicaion was successfull for Person Name:{TUser.FirstName + " " + TUser.LastName}, Username={TUser.Username}");
+				Console.WriteLine($"Authenicaion was successfull for Person Name:{_user.FirstName + " " + _user.LastName}, Username={_user.Username}");
+
+#if DEBUG
+				File.Copy("session.dat", "session.backup-copy.dat", true);
+#endif
+
 			}
 			catch (Exception ex)
 			{
