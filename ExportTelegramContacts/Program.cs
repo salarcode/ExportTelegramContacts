@@ -25,28 +25,33 @@ namespace ExportTelegramContacts
 			get
 			{
 				var idStr = System.Configuration.ConfigurationManager.AppSettings["api_id"];
-				int id;
-				int.TryParse(idStr, out id);
+				int.TryParse(idStr, out var id);
 
 				return id;
 			}
 		}
-		public static string ApiHash
-		{
-			get
-			{
-				return System.Configuration.ConfigurationManager.AppSettings["api_hash"] ?? "";
-			}
-		}
+		public static string ApiHash => System.Configuration.ConfigurationManager.AppSettings["api_hash"] ?? "";
 
 		static void Main(string[] args)
 		{
-
 			Console.WriteLine("***************************");
-			Console.WriteLine("Welcome to Telegram Contact Exporter");
+			Console.WriteLine("Welcome to Telegram Contacts Exporter");
 			Console.WriteLine("***************************");
 			try
 			{
+				var apiId = ApiId;
+				var apiHash = ApiHash;
+
+				if (string.IsNullOrWhiteSpace(apiHash) ||
+				    apiHash.Contains("PLACEHOLDER") ||
+				    apiId <= 0)
+				{
+					Console.WriteLine("The values for 'api_id' or 'api_hash' are NOT provided. Please enter these value in the \".config\" file and try again.");
+					Console.ReadKey(intercept: true);
+					return;
+				}
+
+
 				Console.Write("Connecting to Telegram servers...");
 				_client = new TelegramClient(ApiId, ApiHash);
 				var connect = _client.ConnectAsync();
@@ -120,8 +125,8 @@ namespace ExportTelegramContacts
 
 				Console.WriteLine($"Number of contacts: {contacts.Users.Count}");
 
-				var fileName = $"ExportedContacts\\Exported-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
-				var fileNameWihContacts = $"ExportedContacts\\Exported-WithPhoto-{DateTime.Now.ToString("yyyy-MM-dd HH-mm.ss")}.vcf";
+				var fileName = $"ExportedContacts\\Exported-{DateTime.Now:yyyy-MM-dd HH-mm.ss}.vcf";
+				var fileNameWihContacts = $"ExportedContacts\\Exported-WithPhoto-{DateTime.Now:yyyy-MM-dd HH-mm.ss}.vcf";
 
 				Directory.CreateDirectory("ExportedContacts");
 
@@ -326,7 +331,7 @@ namespace ExportTelegramContacts
 				Console.ReadKey(intercept: true);
 				return;
 			}
-			Console.Write("Request is sent to your mobile, please enter the code here: ");
+			Console.Write("Request is sent to your mobile or the telegram app associated with this number, please enter the code here: ");
 			var authCode = Console.ReadLine();
 
 			try
@@ -413,10 +418,7 @@ namespace ExportTelegramContacts
 		}
 
 		private static ImageCodecInfo _jpegEncodingCodec;
-		private static ImageCodecInfo JpegEncodingCodec
-		{
-			get { return _jpegEncodingCodec ?? (_jpegEncodingCodec = GetEncoderInfo("image/jpeg")); }
-		}
+		private static ImageCodecInfo JpegEncodingCodec => _jpegEncodingCodec ?? (_jpegEncodingCodec = GetEncoderInfo("image/jpeg"));
 
 		/// <summary> 
 		/// Returns the image codec with the given mime type 
