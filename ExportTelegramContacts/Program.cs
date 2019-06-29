@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using TeleSharp.TL;
@@ -35,7 +36,7 @@ namespace ExportTelegramContacts
 		static void Main(string[] args)
 		{
 			Console.WriteLine("***************************");
-			Console.WriteLine("Welcome to Telegram Contacts Exporter");
+			Console.WriteLine($"Welcome to Telegram Contacts Exporter Version {Assembly.GetExecutingAssembly().GetName().Version}");
 			Console.WriteLine("***************************");
 			try
 			{
@@ -46,7 +47,7 @@ namespace ExportTelegramContacts
 				    apiHash.Contains("PLACEHOLDER") ||
 				    apiId <= 0)
 				{
-					Console.WriteLine("The values for 'api_id' or 'api_hash' are NOT provided. Please enter these value in the \".config\" file and try again.");
+					Console.WriteLine("The values for 'api_id' or 'api_hash' are NOT provided. Please enter these value in the '.config' file and try again.");
 					Console.ReadKey(intercept: true);
 					return;
 				}
