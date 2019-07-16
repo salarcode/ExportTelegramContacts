@@ -135,12 +135,14 @@ namespace ExportTelegramContacts
 				var filterResult = Console.ReadLine() ?? "";
 				var dontExport = !(filterResult == "" || filterResult.ToLower() == "n");
 
+				var usersList = contacts.Users.OfType<TLUser>().ToList();
+
 				Console.WriteLine($"Writing to: {fileName}");
 				using (var file = File.Create(fileName))
 				using (var stringWrite = new StreamWriter(file))
 				{
 					var savedCount = 0;
-					foreach (var user in contacts.Users.OfType<TLUser>())
+					foreach (var user in usersList)
 					{
 						if (dontExport)
 						{
@@ -184,7 +186,7 @@ namespace ExportTelegramContacts
 
 
 						var savedCount = 0;
-						foreach (var user in contacts.Users.OfType<TLUser>())
+						foreach (var user in usersList)
 						{
 							if (dontExport)
 							{
@@ -204,7 +206,11 @@ namespace ExportTelegramContacts
 
 									if (photo != null)
 									{
-										Console.Write($"Reading prfile image for: {user.FirstName} {user.LastName}...");
+										var displayName = user.FirstName + " " + user.LastName;
+										if (string.IsNullOrWhiteSpace(displayName))
+											displayName = user.Username;
+
+										Console.Write($"Reading prfile image for: {displayName}...");
 
 										var smallPhotoBytes = await GetFile(_client,
 											new TLInputFileLocation()
@@ -240,7 +246,10 @@ namespace ExportTelegramContacts
 							stringWrite.WriteLine("BEGIN:VCARD");
 							stringWrite.WriteLine("VERSION:2.1");
 							//Name
-							stringWrite.WriteLine("N:" + user.LastName + ";" + user.FirstName);
+							if (string.IsNullOrEmpty(user.LastName) && string.IsNullOrEmpty(user.FirstName))
+								stringWrite.WriteLine("N:" + user.Username + ";");
+							else
+								stringWrite.WriteLine("N:" + user.LastName + ";" + user.FirstName);
 							//Full Name
 							stringWrite.WriteLine("FN:" + user.FirstName + " " +
 												  /* nameMiddle + " " +*/ user.LastName);
