@@ -1,5 +1,5 @@
 # ExportTelegramContacts
-Easily export Telegram contacts with profile images
+Easily export Telegram contacts with profile images in **vCard** format
 
 # Executable Binary
 You can download the latest executable binary from here:
