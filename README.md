@@ -1,3 +1,6 @@
+# No longer maintained
+There are alternative apps in Mobile App Stores, this repo is no longer maintained, if you think I should countinue this for a good reason you can contact me, thanks.
+
 # ExportTelegramContacts
 Easily export Telegram contacts with profile images in **vCard** format
 
