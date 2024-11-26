@@ -10,8 +10,10 @@ using System.Text;
 using System.Threading.Tasks;
 using TeleSharp.TL;
 using TeleSharp.TL.Account;
+using TeleSharp.TL.Auth;
 using TeleSharp.TL.Contacts;
 using TLSharp.Core;
+using TLSharp.Core.Exceptions;
 
 namespace ExportTelegramContacts
 {
@@ -343,8 +345,8 @@ namespace ExportTelegramContacts
 			}
 			Console.Write("Request is sent to your mobile or the telegram app associated with this number, please enter the code here: ");
 			var authCode = Console.ReadLine();
-
-			try
+            TLUser user;
+            try
 			{
 				_user = await _client.MakeAuthAsync(phoneNumber, requestHash, authCode);
 
@@ -355,7 +357,46 @@ namespace ExportTelegramContacts
 #endif
 
 			}
-			catch (Exception ex)
+            catch (CloudPasswordNeededException)
+            {
+                TLPassword passwordSetting = await _client.GetPasswordSetting();
+                Console.WriteLine("This account needs cloud password.");
+
+            TryAgain:
+                Console.Write("Enter your password: ");
+                string password = Console.ReadLine();
+
+                try
+                {
+                    user = await _client.MakeAuthWithPasswordAsync( passwordSetting, password);
+                }
+                catch // If wrong password
+                {
+                    Console.WriteLine("Hint: " + passwordSetting.Hint);
+
+                    if (passwordSetting.HasRecovery)
+                    {
+                        Console.WriteLine("Do you want to reset your password? [Y|N]");
+                        string answer = Console.ReadLine();
+                        if (answer == "Y")
+                        {
+                            Console.WriteLine("Recovery email: " + passwordSetting.EmailUnconfirmedPattern);
+
+                            // Recover password
+                            Console.Write("Enter email recovery code: ");
+                            string recoveryCode = Console.ReadLine();
+                            _client.SendRequestAsync<TLRequestRecoverPassword>(new TLRequestRecoverPassword() { Code = recoveryCode });
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("This account doesn't have recovery!");
+                    }
+
+                    goto TryAgain;
+                }
+            }
+            catch (Exception ex)
 			{
 				Console.WriteLine(ex.Message);
 				return;
